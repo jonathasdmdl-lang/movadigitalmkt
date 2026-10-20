@@ -10,7 +10,7 @@ def connection():
  return c
 with connection() as c:
  for k in MODULES: c.execute("CREATE TABLE IF NOT EXISTS "+k+"(id INTEGER PRIMARY KEY, titulo TEXT NOT NULL, descricao TEXT DEFAULT '', status TEXT DEFAULT 'Pendente', criado TEXT DEFAULT CURRENT_TIMESTAMP)")
-HTML="""<!doctype html><html lang="pt-br"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MOVA Gestão</title><style>body{margin:0;background:#0e1119;color:#f0f2f8;font:15px Arial,sans-serif}header{padding:24px;background:#171b29;border-bottom:1px solid #30384d}.brand{font-size:27px;font-weight:900;letter-spacing:1px}.brand span{color:#9baeff}main{max-width:1050px;margin:28px auto;padding:0 18px}a{color:#aabcff;text-decoration:none}nav a{display:inline-block;margin:16px 15px 0 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:15px}.box{background:#1b2232;border:1px solid #343e52;border-radius:14px;padding:22px;margin:12px 0}.warning{background:#30271a;border:1px solid #806435;padding:15px;border-radius:10px;margin:16px 0}input,textarea,select{display:block;width:100%;box-sizing:border-box;padding:12px;margin:10px 0;background:#111726;color:white;border:1px solid #515c78;border-radius:9px}button{background:#94abff;color:#121625;border:0;border-radius:8px;padding:12px 22px;font-weight:700;cursor:pointer}table{width:100%;border-collapse:collapse}th,td{padding:13px;border-bottom:1px solid #394154;text-align:left}</style></head><body><header><div class="brand">MOVA <span>GESTÃO</span></div><small>Estratégia que gera movimento.</small>{% if session.get("user") %}<nav><a href="/">Painel</a><a href="/gestao/clientes">Gestão de clientes</a><a href="/gestao/cobrancas">Cobranças</a>{% for key,label in modules.items() %}<a href="/modulo/{{key}}">{{label}}</a>{% endfor %}<a href="/sair">Sair</a></nav>{% endif %}</header><main><div class="warning">VERSÃO DE DEMONSTRAÇÃO — não cadastre dados pessoais, contratos ou valores reais. Dados temporários, sujeitos a exclusão.</div>{% for msg in get_flashed_messages() %}<p>{{msg}}</p>{% endfor %}{% block main %}{% endblock %}</main></body></html>"""
+HTML="""<!doctype html><html lang="pt-br"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MOVA Gestão</title><style>body{margin:0;background:#0e1119;color:#f0f2f8;font:15px Arial,sans-serif}header{padding:24px;background:#171b29;border-bottom:1px solid #30384d}.brand{font-size:27px;font-weight:900;letter-spacing:1px}.brand span{color:#9baeff}main{max-width:1050px;margin:28px auto;padding:0 18px}a{color:#aabcff;text-decoration:none}nav a{display:inline-block;margin:16px 15px 0 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:15px}.box{background:#1b2232;border:1px solid #343e52;border-radius:14px;padding:22px;margin:12px 0}.warning{background:#30271a;border:1px solid #806435;padding:15px;border-radius:10px;margin:16px 0}input,textarea,select{display:block;width:100%;box-sizing:border-box;padding:12px;margin:10px 0;background:#111726;color:white;border:1px solid #515c78;border-radius:9px}button{background:#94abff;color:#121625;border:0;border-radius:8px;padding:12px 22px;font-weight:700;cursor:pointer}table{width:100%;border-collapse:collapse}th,td{padding:13px;border-bottom:1px solid #394154;text-align:left}</style></head><body><header><div class="brand">MOVA <span>GESTÃO</span></div><small>Estratégia que gera movimento.</small>{% if session.get("user") %}<nav><a href="/">Painel</a><a href="/gestao/clientes">Gestão de clientes</a><a href="/gestao/cobrancas">Cobranças</a><a href="/agencia/planejamento">Planejamento</a><a href="/agencia/servicos">Ordens de serviço</a>{% for key,label in modules.items() %}<a href="/modulo/{{key}}">{{label}}</a>{% endfor %}<a href="/sair">Sair</a></nav>{% endif %}</header><main><div class="warning">VERSÃO DE DEMONSTRAÇÃO — não cadastre dados pessoais, contratos ou valores reais. Dados temporários, sujeitos a exclusão.</div>{% for msg in get_flashed_messages() %}<p>{{msg}}</p>{% endfor %}{% block main %}{% endblock %}</main></body></html>"""
 def render(inner,**kwargs):return render_template_string(HTML.replace("{% block main %}{% endblock %}",inner),modules=MODULES,**kwargs)
 def require(f):
  @wraps(f)
@@ -126,3 +126,67 @@ def bills():
   rows=c.execute("SELECT b.*,c.nome FROM crm_cobrancas b JOIN crm_clientes c ON c.id=b.cliente_id ORDER BY b.vencimento DESC").fetchall()
  total=sum(x["valor_centavos"] for x in rows if x["situacao"]!="Pago")
  return render("""<h1>Contas a receber</h1><div class="box"><h2>Em aberto: {{money(total)}}</h2><p>Cadastre cobranças pela ficha de cada cliente.</p><table><tr><th>Cliente</th><th>Cobrança</th><th>Vencimento</th><th>Valor</th><th>Situação</th></tr>{% for x in rows %}<tr><td><a href="/gestao/cliente/{{x['cliente_id']}}">{{x['nome']}}</a></td><td>{{x['descricao']}}</td><td>{{x['vencimento']}}</td><td>{{money(x['valor_centavos'])}}</td><td>{{x['situacao']}}</td></tr>{% endfor %}</table></div>""",rows=rows,total=total)
+
+# MODULOS AGENCIA: planejamento editorial e ordens de servico
+with connection() as c:
+ c.execute("""CREATE TABLE IF NOT EXISTS planejamento(id INTEGER PRIMARY KEY,cliente_id INTEGER NOT NULL,mes TEXT NOT NULL,objetivo TEXT NOT NULL,publico TEXT DEFAULT '',canais TEXT DEFAULT '',estrategia TEXT DEFAULT '',metas TEXT DEFAULT '',orcamento TEXT DEFAULT '',responsavel TEXT DEFAULT '',status TEXT DEFAULT 'Planejamento',criado TEXT DEFAULT CURRENT_TIMESTAMP)""")
+ c.execute("""CREATE TABLE IF NOT EXISTS pauta(id INTEGER PRIMARY KEY,planejamento_id INTEGER NOT NULL,data TEXT,canal TEXT,formato TEXT,tema TEXT NOT NULL,legenda TEXT DEFAULT '',responsavel TEXT DEFAULT '',status TEXT DEFAULT 'Ideia',observacoes TEXT DEFAULT '')""")
+ c.execute("""CREATE TABLE IF NOT EXISTS ordem_servico(id INTEGER PRIMARY KEY,cliente_id INTEGER NOT NULL,numero TEXT UNIQUE,servico TEXT NOT NULL,escopo TEXT NOT NULL,entregaveis TEXT DEFAULT '',inicio TEXT,termino TEXT,valor_centavos INTEGER DEFAULT 0,responsavel TEXT DEFAULT '',status TEXT DEFAULT 'Rascunho',observacoes TEXT DEFAULT '',criado TEXT DEFAULT CURRENT_TIMESTAMP)""")
+@app.route("/agencia/planejamento",methods=["GET","POST"])
+@require
+def plano_lista():
+ if request.method=="POST":
+  cid=request.form.get("cliente_id",type=int);objective=request.form.get("objetivo","").strip()[:500]
+  if cid and client_exists(cid) and objective:
+   values=[request.form.get(k,"").strip()[:1400] for k in ("mes","publico","canais","estrategia","metas","orcamento","responsavel")]
+   with connection() as c:c.execute("INSERT INTO planejamento(cliente_id,objetivo,mes,publico,canais,estrategia,metas,orcamento,responsavel) VALUES(?,?,?,?,?,?,?,?,?)",[cid,objective]+values)
+   flash("Planejamento criado.")
+  else:flash("Selecione um cliente e defina o objetivo.")
+  return redirect("/agencia/planejamento")
+ with connection() as c:
+  clients=c.execute("SELECT id,nome FROM crm_clientes ORDER BY nome").fetchall()
+  plans=c.execute("SELECT p.*,c.nome FROM planejamento p JOIN crm_clientes c ON c.id=p.cliente_id ORDER BY p.id DESC").fetchall()
+ return render("""<h1>Planejamento estratégico e editorial</h1><p>Organize objetivos, canais, metas e conteúdos de cada cliente.</p><div class="box"><h3>Novo planejamento</h3><form method="post"><select name="cliente_id" required><option value="">Escolher cliente</option>{% for c in clients %}<option value="{{c['id']}}">{{c['nome']}}</option>{% endfor %}</select><label>Mês de referência</label><input name="mes" type="month" required><input name="objetivo" placeholder="Objetivo da campanha" required><input name="publico" placeholder="Público-alvo"><input name="canais" placeholder="Canais (Instagram, Facebook, Google Ads...)"><textarea name="estrategia" placeholder="Estratégia, tom de voz, mensagens principais"></textarea><textarea name="metas" placeholder="Metas e indicadores (KPIs)"></textarea><input name="orcamento" placeholder="Orçamento previsto"><input name="responsavel" placeholder="Gestor responsável"><button>Criar planejamento</button></form></div><div class="box"><h3>Planejamentos por cliente</h3><table><tr><th>Cliente</th><th>Mês</th><th>Objetivo</th><th>Etapa</th></tr>{% for p in plans %}<tr><td><a href="/agencia/plano/{{p['id']}}">{{p['nome']}}</a></td><td>{{p['mes']}}</td><td>{{p['objetivo']}}</td><td>{{p['status']}}</td></tr>{% endfor %}</table></div>""",clients=clients,plans=plans)
+@app.route("/agencia/plano/<int:pid>",methods=["GET","POST"])
+@require
+def plan_detail(pid):
+ with connection() as c: p=c.execute("SELECT p.*,c.nome FROM planejamento p JOIN crm_clientes c ON c.id=p.cliente_id WHERE p.id=?",(pid,)).fetchone()
+ if not p:return "Planejamento não encontrado",404
+ if request.method=="POST":
+  action=request.form.get("action")
+  with connection() as c:
+   if action=="pauta":
+    tema=request.form.get("tema","").strip()[:300]
+    if tema:
+     vals=[request.form.get(k,"").strip()[:1200] for k in ("data","canal","formato","legenda","responsavel","observacoes")]
+     c.execute("INSERT INTO pauta(planejamento_id,tema,data,canal,formato,legenda,responsavel,observacoes) VALUES(?,?,?,?,?,?,?,?)",[pid,tema]+vals)
+     flash("Conteúdo adicionado ao calendário.")
+   elif action=="status":
+    status=request.form.get("status","")
+    if status in ("Planejamento","Produção","Aprovação","Publicado","Concluído"):c.execute("UPDATE planejamento SET status=? WHERE id=?",(status,pid))
+  return redirect("/agencia/plano/"+str(pid))
+ with connection() as c:it=c.execute("SELECT * FROM pauta WHERE planejamento_id=? ORDER BY data,id",(pid,)).fetchall()
+ return render("""<p><a href="/agencia/planejamento">← Planejamentos</a></p><h1>{{p['nome']}} · {{p['mes']}}</h1><div class="grid"><div class="box"><h3>Objetivos</h3><p>{{p['objetivo']}}</p><h3>Público</h3><p>{{p['publico']}}</p><h3>Canais</h3><p>{{p['canais']}}</p></div><div class="box"><h3>Estratégia</h3><p style="white-space:pre-wrap">{{p['estrategia']}}</p><h3>KPIs</h3><p>{{p['metas']}}</p><p>Orçamento: {{p['orcamento']}}</p><p>Gestor: {{p['responsavel']}}</p><form method="post"><input type="hidden" name="action" value="status"><select name="status">{% for x in ['Planejamento','Produção','Aprovação','Publicado','Concluído'] %}<option {% if x==p['status'] %}selected{% endif %}>{{x}}</option>{% endfor %}</select><button>Atualizar etapa</button></form></div></div><div class="box"><h3>Calendário editorial · Novo conteúdo</h3><form method="post"><input type="hidden" name="action" value="pauta"><div class="grid"><input name="data" type="date"><input name="canal" placeholder="Instagram, TikTok..."><select name="formato"><option>Reels</option><option>Carrossel</option><option>Stories</option><option>Post estático</option><option>Vídeo</option><option>Outro</option></select><input name="responsavel" placeholder="Responsável"></div><input name="tema" required placeholder="Tema da publicação"><textarea name="legenda" placeholder="Texto / legenda planejada"></textarea><textarea name="observacoes" placeholder="Briefing visual e orientações"></textarea><button>Adicionar conteúdo</button></form></div><div class="box"><h3>Pautas planejadas</h3><table><tr><th>Data</th><th>Canal</th><th>Formato</th><th>Tema</th><th>Responsável</th><th>Status</th></tr>{% for i in it %}<tr><td>{{i['data']}}</td><td>{{i['canal']}}</td><td>{{i['formato']}}</td><td>{{i['tema']}}</td><td>{{i['responsavel']}}</td><td>{{i['status']}}</td></tr>{% endfor %}</table></div>""",p=p,it=it)
+@app.route("/agencia/servicos",methods=["GET","POST"])
+@require
+def os_list():
+ if request.method=="POST":
+  cid=request.form.get("cliente_id",type=int);service=request.form.get("servico","").strip()[:180];scope=request.form.get("escopo","").strip()[:2000];amount=real(request.form.get("valor",""))
+  if cid and client_exists(cid) and service and scope:
+   import uuid
+   numero="MOVA-"+date.today().strftime("%Y%m")+"-"+uuid.uuid4().hex[:6].upper()
+   vals=[request.form.get(k,"").strip()[:1500] for k in ("entregaveis","inicio","termino","responsavel","observacoes")]
+   with connection() as c:c.execute("INSERT INTO ordem_servico(cliente_id,numero,servico,escopo,valor_centavos,entregaveis,inicio,termino,responsavel,observacoes) VALUES(?,?,?,?,?,?,?,?,?,?)",[cid,numero,service,scope,amount or 0]+vals)
+   flash("Ordem de serviço "+numero+" gerada.")
+  else:flash("Informe cliente, serviço e escopo.")
+  return redirect("/agencia/servicos")
+ with connection() as c:
+  clients=c.execute("SELECT id,nome FROM crm_clientes ORDER BY nome").fetchall()
+  orders=c.execute("SELECT o.*,c.nome FROM ordem_servico o JOIN crm_clientes c ON c.id=o.cliente_id ORDER BY o.id DESC").fetchall()
+ return render("""<h1>Prestação de serviços</h1><p>Gere ordens de serviço vinculadas aos clientes, com numeração automática.</p><div class="box"><h3>Nova ordem de serviço</h3><form method="post"><select name="cliente_id" required><option value="">Selecionar cliente</option>{% for c in clients %}<option value="{{c['id']}}">{{c['nome']}}</option>{% endfor %}</select><input name="servico" required placeholder="Serviço contratado"><textarea name="escopo" required placeholder="Escopo detalhado da prestação do serviço"></textarea><textarea name="entregaveis" placeholder="Entregáveis e quantidades (ex.: 12 posts, 4 reels...)"></textarea><div class="grid"><input type="date" name="inicio"><input type="date" name="termino"><input name="valor" placeholder="Valor, ex.: 2500,00"><input name="responsavel" placeholder="Gestor da conta"></div><textarea name="observacoes" placeholder="Condições adicionais"></textarea><button>Gerar ordem de serviço</button></form></div><div class="box"><h3>Ordens emitidas</h3><table><tr><th>Número</th><th>Cliente</th><th>Serviço</th><th>Valor</th><th>Status</th><th>Documento</th></tr>{% for o in orders %}<tr><td>{{o['numero']}}</td><td>{{o['nome']}}</td><td>{{o['servico']}}</td><td>{{money(o['valor_centavos'])}}</td><td>{{o['status']}}</td><td><a href="/agencia/os/{{o['id']}}">Visualizar</a></td></tr>{% endfor %}</table></div>""",clients=clients,orders=orders)
+@app.get("/agencia/os/<int:oid>")
+@require
+def os_document(oid):
+ with connection() as c:o=c.execute("SELECT o.*,c.nome,c.documento,c.email,c.telefone FROM ordem_servico o JOIN crm_clientes c ON c.id=o.cliente_id WHERE o.id=?",(oid,)).fetchone()
+ if not o:return "Não encontrado",404
+ return render("""<div class="box"><h1>ORDEM DE SERVIÇO · {{o['numero']}}</h1><p><b>Prestadora:</b> MOVA Marketing Digital</p><p><b>Contratante:</b> {{o['nome']}} · {{o['documento'] or ''}}</p><p><b>Contato:</b> {{o['email'] or ''}} · {{o['telefone'] or ''}}</p><h3>Serviço: {{o['servico']}}</h3><p style="white-space:pre-wrap">{{o['escopo']}}</p><h3>Entregáveis</h3><p style="white-space:pre-wrap">{{o['entregaveis']}}</p><p><b>Período:</b> {{o['inicio']}} a {{o['termino']}}</p><p><b>Investimento:</b> {{money(o['valor_centavos'])}}</p><p><b>Responsável:</b> {{o['responsavel']}}</p><p><b>Observações:</b> {{o['observacoes']}}</p><p><b>Status:</b> {{o['status']}}</p><p><small>Documento operacional. Não constitui contrato assinado, nota fiscal ou comprovante de pagamento.</small></p><button onclick="window.print()">Imprimir / salvar PDF</button></div>""",o=o)
